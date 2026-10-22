@@ -37,6 +37,11 @@ export type DateAssessment = {
 const NIQQUD = /[֑-ׇ]/g;
 export const stripNiqqud = (s: string) => s.replace(NIQQUD, "");
 
+/** "ט״ו ניסן תשפ״ו" */
+export function hebrewDateOf(iso: string): string {
+  return stripNiqqud(new HDate(isoToDate(iso)).renderGematriya(true));
+}
+
 const SEVERITY_RANK: Record<Severity, number> = { good: 0, info: 1, caution: 2, avoid: 3, blocked: 4 };
 
 function verdictOf(flagList: DateFlag[]): Verdict {

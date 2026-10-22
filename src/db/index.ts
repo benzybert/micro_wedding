@@ -1,4 +1,5 @@
 import { drizzle as drizzlePg, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import { mkdirSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import postgres from "postgres";
@@ -32,6 +33,7 @@ function create(): Holder {
   const { drizzle: drizzlePglite } = req("drizzle-orm/pglite") as typeof import("drizzle-orm/pglite");
   const dir =
     process.env.NEXT_PHASE === "phase-production-build" ? "memory://" : (process.env.PGLITE_DIR ?? ".data/pglite");
+  if (!dir.startsWith("memory://")) mkdirSync(path.dirname(path.resolve(dir)), { recursive: true });
   const client = new PGlite(dir);
   // PGlite and postgres-js drizzle instances expose the same query-builder surface.
   return { db: drizzlePglite(client, { schema }) as unknown as Db, close: () => client.close() };

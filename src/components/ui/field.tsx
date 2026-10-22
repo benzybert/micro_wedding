@@ -33,16 +33,16 @@ export function Field({
   );
 }
 
-export function Input({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+export function Input({ className, ...props }: React.ComponentProps<"input">) {
   const dirProps = props.type === "tel" || props.type === "email" || props.type === "url" || props.type === "date" || props.type === "time" || props.type === "number" ? {} : { dir: "auto" as const };
   return <input className={cn(inputClass, className)} {...dirProps} {...props} />;
 }
 
-export function Textarea({ className, rows = 3, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function Textarea({ className, rows = 3, ...props }: React.ComponentProps<"textarea">) {
   return <textarea rows={rows} dir="auto" className={cn(inputClass, "py-2.5 leading-relaxed", className)} {...props} />;
 }
 
-export function Select({ className, children, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+export function Select({ className, children, ...props }: React.ComponentProps<"select">) {
   return (
     <select className={cn(inputClass, "pe-8", className)} {...props}>
       {children}
