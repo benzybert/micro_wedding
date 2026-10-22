@@ -98,7 +98,7 @@ export default async function VendorsPage() {
                             </a>
                           ) : null}
                           {v.instagram ? (
-                            <a className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-brand-ink hover:bg-brand-soft" href={`https://instagram.com/${v.instagram.replace(/^@/, "")}`} target="_blank" rel="noopener noreferrer">
+                            <a className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-brand-ink hover:bg-brand-soft" href={`https://instagram.com/${v.instagram.replace(/[^A-Za-z0-9._]/g, "")}`} target="_blank" rel="noopener noreferrer">
                               <AtSign className="size-3.5" aria-hidden /> אינסטגרם
                             </a>
                           ) : null}

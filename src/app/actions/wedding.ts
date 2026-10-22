@@ -139,3 +139,12 @@ export async function acceptInviteAction(_prev: ActionState, formData: FormData)
   });
   redirect("/home");
 }
+
+/** Owner-only, irreversible: deletes the wedding and, by cascade, every guest, decision, budget line … */
+export async function deleteWeddingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ws = await requireWorkspace();
+  if (ws.me.role !== "owner") return fail("רק מי שיצר/ה את החתונה יכול/ה למחוק אותה.");
+  if (String(formData.get("confirm") ?? "").trim() !== "מחיקה") return fail('כדי לאשר, כתבו "מחיקה".');
+  await db.delete(schema.weddings).where(eq(schema.weddings.id, ws.wedding.id));
+  redirect("/onboarding");
+}

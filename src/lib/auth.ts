@@ -17,6 +17,8 @@ function origins(): string[] {
 }
 
 const isProd = process.env.NODE_ENV === "production";
+// `next build` imports this module without a runtime environment; only a real server start must fail closed.
+const isBuild = process.env.NEXT_PHASE === "phase-production-build";
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
@@ -28,7 +30,7 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
-  secret: process.env.BETTER_AUTH_SECRET ?? (isProd ? undefined : "dev-only-secret-dev-only-secret-0123456789"),
+  secret: process.env.BETTER_AUTH_SECRET ?? (isProd && !isBuild ? undefined : "dev-only-secret-dev-only-secret-0123456789"),
   baseURL: process.env.BETTER_AUTH_URL ?? (process.env.VERCEL_PROJECT_PRODUCTION_URL
     ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
     : "http://localhost:3000"),

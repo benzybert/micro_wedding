@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const ws = await getWorkspace();
-  if (!ws) return new Response("Unauthorized", { status: 401 });
+  if (!ws) return new Response("Unauthorized", { status: 401, headers: { "Cache-Control": "no-store" } });
 
   const [households, guests, tables] = await Promise.all([
     db.select().from(schema.households).where(eq(schema.households.weddingId, ws.wedding.id)),
