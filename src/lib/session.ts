@@ -85,3 +85,8 @@ export async function requireWorkspace(): Promise<Workspace> {
 export function partnerName(wedding: Pick<Wedding, "partnerAName" | "partnerBName">, p: "a" | "b") {
   return p === "a" ? wedding.partnerAName : wedding.partnerBName;
 }
+
+/** Name to show for a member: the partner slot's name as entered on the wedding, else the account name. */
+export function memberLabel(wedding: Pick<Wedding, "partnerAName" | "partnerBName">, m: Pick<Member, "partner" | "name">): string {
+  return m.partner === "a" ? wedding.partnerAName : m.partner === "b" ? wedding.partnerBName : m.name;
+}

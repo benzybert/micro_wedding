@@ -1,5 +1,5 @@
 import "server-only";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
 
 /* Read helpers. Every one is scoped by weddingId; callers get it from requireWorkspace(). */
@@ -35,4 +35,44 @@ export function getRecentActivity(weddingId: string, limit = 8) {
 
 export function getTimeline(weddingId: string) {
   return db.select().from(schema.timelineItems).where(eq(schema.timelineItems.weddingId, weddingId)).orderBy(asc(schema.timelineItems.startTime));
+}
+
+export async function getDecisionBundle(weddingId: string, id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const [decision] = await db
+    .select()
+    .from(schema.decisions)
+    .where(and(eq(schema.decisions.id, id), eq(schema.decisions.weddingId, weddingId)))
+    .limit(1);
+  if (!decision) return null;
+  const [options, criteria, scores, comments] = await Promise.all([
+    db.select().from(schema.decisionOptions).where(eq(schema.decisionOptions.decisionId, id)).orderBy(asc(schema.decisionOptions.sortOrder), asc(schema.decisionOptions.createdAt)),
+    db.select().from(schema.decisionCriteria).where(eq(schema.decisionCriteria.decisionId, id)).orderBy(asc(schema.decisionCriteria.sortOrder)),
+    db
+      .select({ optionId: schema.decisionScores.optionId, criterionId: schema.decisionScores.criterionId, userId: schema.decisionScores.userId, score: schema.decisionScores.score })
+      .from(schema.decisionScores)
+      .innerJoin(schema.decisionOptions, eq(schema.decisionOptions.id, schema.decisionScores.optionId))
+      .where(eq(schema.decisionOptions.decisionId, id)),
+    db
+      .select({ id: schema.decisionComments.id, userId: schema.decisionComments.userId, body: schema.decisionComments.body, createdAt: schema.decisionComments.createdAt, author: schema.user.name })
+      .from(schema.decisionComments)
+      .innerJoin(schema.user, eq(schema.user.id, schema.decisionComments.userId))
+      .where(eq(schema.decisionComments.decisionId, id))
+      .orderBy(asc(schema.decisionComments.createdAt)),
+  ]);
+  return { decision, options, criteria, scores, comments };
+}
+
+/** Options, criteria and scores for every decision of a wedding (to show the current leader in the list). */
+export async function getAllDecisionScoring(weddingId: string) {
+  const [options, criteria, scores] = await Promise.all([
+    db.select().from(schema.decisionOptions).where(eq(schema.decisionOptions.weddingId, weddingId)),
+    db.select().from(schema.decisionCriteria).where(eq(schema.decisionCriteria.weddingId, weddingId)),
+    db
+      .select({ optionId: schema.decisionScores.optionId, criterionId: schema.decisionScores.criterionId, userId: schema.decisionScores.userId, score: schema.decisionScores.score })
+      .from(schema.decisionScores)
+      .innerJoin(schema.decisionOptions, eq(schema.decisionOptions.id, schema.decisionScores.optionId))
+      .where(eq(schema.decisionOptions.weddingId, weddingId)),
+  ]);
+  return { options, criteria, scores };
 }
