@@ -32,9 +32,9 @@ npm run db:generate && npm run db:migrate
 - קומפוננטות לקוח (`"use client"`) לא מקבלות פונקציות כ-props אלא Server Actions או נתונים.
 - `ActionForm` + `SubmitButton` לטפסים (לא מאפס שדות בשגיאה). אחרי פעולה שמסירה את הטופס מהעמוד, הודעת ההצלחה לא נשארת: להציג את התוצאה עצמה.
 
-## פעולות שנעשו ונחסמו (אוקטובר 2026)
+## פריסה
 
-פריסה לא בוצעה: Railway דחה יצירת פרויקט ("Deploys have been paused temporarily"), ויצירת פרויקט Vercel דרך הקונקטור החזירה 403. לפרטים ולצעדים: `docs/ARCHITECTURE.md#פריסה-vercel`.
+Railway: פרויקט `micro-wedding` (שירותים `web` ו-`Postgres`), בנייה אוטומטית מהענף. מיגרציות רצות בעליית השרת כש-`AUTO_MIGRATE=1`. פרטים ב-`docs/ARCHITECTURE.md#פריסה`. ל-Vercel אין פרויקט (יצירה דרך הקונקטור החזירה 403 באוקטובר 2026).
 
 ## עוד לא נבנה
 
