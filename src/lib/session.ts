@@ -1,10 +1,18 @@
 import "server-only";
 import { cache } from "react";
-import { headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { db, schema } from "@/db";
-import { auth } from "@/lib/auth";
+import { ensureMembers } from "@/lib/wedding-service";
+
+/*
+ * No accounts: this is a private planning tool for two people. The site holds ONE wedding, and a cookie
+ * remembers which partner is looking ("אני בן" / "אני יערה"), so scores, comments and the activity feed
+ * still say who did what. It is an identity picker, not authentication: anyone who has the URL can use it.
+ */
+
+export const WHO_COOKIE = "mw_who";
 
 export type Wedding = typeof schema.weddings.$inferSelect;
 
@@ -17,31 +25,17 @@ export type Member = {
 };
 
 export type Workspace = {
+  /** The partner who is looking (the stand-in identity behind the cookie). */
   user: { id: string; name: string; email: string };
   wedding: Wedding;
   me: Member;
   members: Member[];
 };
 
-export const getSession = cache(async () => auth.api.getSession({ headers: await headers() }));
+type Context = { wedding: Wedding; members: Member[]; who: "a" | "b" | null };
 
-export const getWorkspace = cache(async (): Promise<Workspace | null> => {
-  const session = await getSession();
-  if (!session) return null;
-
-  const mine = await db
-    .select({ weddingId: schema.weddingMembers.weddingId })
-    .from(schema.weddingMembers)
-    .where(eq(schema.weddingMembers.userId, session.user.id))
-    .orderBy(schema.weddingMembers.joinedAt)
-    .limit(1);
-  const weddingId = mine[0]?.weddingId;
-  if (!weddingId) return null;
-
-  const [wedding] = await db.select().from(schema.weddings).where(eq(schema.weddings.id, weddingId)).limit(1);
-  if (!wedding) return null;
-
-  const rows = await db
+async function loadMembers(weddingId: string): Promise<Member[]> {
+  return db
     .select({
       userId: schema.weddingMembers.userId,
       role: schema.weddingMembers.role,
@@ -52,32 +46,42 @@ export const getWorkspace = cache(async (): Promise<Workspace | null> => {
     .from(schema.weddingMembers)
     .innerJoin(schema.user, eq(schema.user.id, schema.weddingMembers.userId))
     .where(eq(schema.weddingMembers.weddingId, weddingId))
-    .orderBy(schema.weddingMembers.joinedAt);
-
-  const members: Member[] = rows;
-  const me = members.find((m) => m.userId === session.user.id);
-  if (!me) return null;
-
-  return {
-    user: { id: session.user.id, name: session.user.name, email: session.user.email },
-    wedding,
-    me,
-    members,
-  };
-});
-
-export async function requireUser() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  return session.user;
+    .orderBy(asc(schema.weddingMembers.partner));
 }
 
-/** Page/action gate: signed in AND member of a wedding. Every server action must call this. */
+/** The one wedding on this site (null until the one-time setup is done) and who is looking. */
+export const getContext = cache(async (): Promise<Context | null> => {
+  // Read the cookie FIRST: touching request data opts the page out of static prerendering. Without it Next would
+  // run the queries below at build time and freeze whatever the database held then.
+  const raw = (await cookies()).get(WHO_COOKIE)?.value;
+  const [wedding] = await db.select().from(schema.weddings).orderBy(asc(schema.weddings.createdAt)).limit(1);
+  if (!wedding) return null;
+
+  let members = await loadMembers(wedding.id);
+  if (!members.some((m) => m.partner === "a") || !members.some((m) => m.partner === "b")) {
+    await ensureMembers(wedding.id, { a: wedding.partnerAName, b: wedding.partnerBName });
+    members = await loadMembers(wedding.id);
+  }
+  return { wedding, members, who: raw === "a" || raw === "b" ? raw : null };
+});
+
+function workspaceOf(ctx: Context): Workspace | null {
+  const me = ctx.who ? ctx.members.find((m) => m.partner === ctx.who) : undefined;
+  if (!me) return null;
+  return { user: { id: me.userId, name: me.name, email: me.email }, wedding: ctx.wedding, me, members: ctx.members };
+}
+
+export const getWorkspace = cache(async (): Promise<Workspace | null> => {
+  const ctx = await getContext();
+  return ctx ? workspaceOf(ctx) : null;
+});
+
+/** Page/action gate: the wedding exists and a partner has been picked. Every server action calls this. */
 export async function requireWorkspace(): Promise<Workspace> {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  const ws = await getWorkspace();
-  if (!ws) redirect("/onboarding");
+  const ctx = await getContext();
+  if (!ctx) redirect("/onboarding");
+  const ws = workspaceOf(ctx);
+  if (!ws) redirect("/who");
   return ws;
 }
 
@@ -86,7 +90,7 @@ export function partnerName(wedding: Pick<Wedding, "partnerAName" | "partnerBNam
   return p === "a" ? wedding.partnerAName : wedding.partnerBName;
 }
 
-/** Name to show for a member: the partner slot's name as entered on the wedding, else the account name. */
+/** Name to show for a member: the partner slot's name as entered on the wedding, else the stored name. */
 export function memberLabel(wedding: Pick<Wedding, "partnerAName" | "partnerBName">, m: Pick<Member, "partner" | "name">): string {
   return m.partner === "a" ? wedding.partnerAName : m.partner === "b" ? wedding.partnerBName : m.name;
 }

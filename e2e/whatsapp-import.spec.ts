@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { newUser } from "./helpers";
+import { resetSite, twoPlanners } from "./helpers";
+
+test.beforeEach(async ({ browser }) => {
+  await resetSite(browser);
+});
 
 const DAY = 86_400_000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
@@ -19,7 +23,7 @@ const chats = [
 ];
 
 test("WhatsApp import: window → yes/no review → guests; rejected people are not offered again", async ({ browser }) => {
-  const { page } = await newUser(browser, "נועה כהן", "דן");
+  const { a: page } = await twoPlanners(browser, "נועה", "דן");
 
   // someone already on the list, saved in a different phone format
   await page.goto("/guests/new");
@@ -77,7 +81,7 @@ test("WhatsApp import: window → yes/no review → guests; rejected people are 
 });
 
 test("WhatsApp import: a wrong file is refused with a clear message and nothing is stored", async ({ browser }) => {
-  const { page } = await newUser(browser, "נועה כהן", "דן");
+  const { a: page } = await twoPlanners(browser, "נועה", "דן");
   await page.goto("/guests/import/whatsapp");
 
   await page.setInputFiles("input[type=file]", { name: "x.json", mimeType: "application/json", buffer: Buffer.from('{"hello":1}') });
@@ -86,14 +90,26 @@ test("WhatsApp import: a wrong file is refused with a clear message and nothing 
   await expect(page.locator("li", { hasText: "הודעה אחרונה" })).toHaveCount(0);
 });
 
-test("WhatsApp import: another couple never sees my approval list", async ({ browser }) => {
-  const { page: mine } = await newUser(browser, "נועה כהן", "דן");
-  await mine.goto("/guests/import/whatsapp");
-  await mine.setInputFiles("input[type=file]", exportFile([{ name: "סודי פרטי", phone: "972509998888", lastMessageAt: daysAgo(3) }]));
-  await mine.getByRole("button", { name: "טעינה לרשימת האישור" }).click();
-  await expect(mine.getByText("סודי פרטי")).toBeVisible();
+test("WhatsApp import: both partners share one approval list, and a device that has not picked who it is is sent to /who", async ({ browser }) => {
+  const { a, b } = await twoPlanners(browser, "נועה", "דן");
+  await a.goto("/guests/import/whatsapp");
+  await a.setInputFiles("input[type=file]", exportFile([{ name: "סודי פרטי", phone: "972509998888", lastMessageAt: daysAgo(3) }]));
+  await a.getByRole("button", { name: "טעינה לרשימת האישור" }).click();
+  await expect(a.getByText("סודי פרטי")).toBeVisible();
 
-  const { page: other } = await newUser(browser, "רונית שמש", "אבי");
-  await other.goto("/guests/import/whatsapp");
-  await expect(other.getByText("סודי פרטי")).toHaveCount(0);
+  // the other partner, on another device, sees the same person and can decide
+  await b.goto("/guests/import/whatsapp");
+  await expect(b.getByText("סודי פרטי")).toBeVisible();
+  await b.getByRole("button", { name: "לא, לא להוסיף את סודי פרטי" }).click();
+  await b.getByRole("button", { name: "שמירת ההחלטות" }).click();
+  // the last person was decided, so the review card is gone: the page itself must say what happened
+  await expect(b.getByRole("status").filter({ hasText: "אין מי שממתין להחלטה" })).toContainText("1 אדם נדחה");
+  await a.reload();
+  await expect(a.getByText("סודי פרטי")).toHaveCount(0);
+
+  // a device with no identity gets nothing, not even the page
+  const anon = await (await browser.newContext({ locale: "he-IL" })).newPage();
+  await anon.goto("/guests/import/whatsapp");
+  await expect(anon).toHaveURL(/\/who$/);
+  await expect(anon.getByText("סודי פרטי")).toHaveCount(0);
 });

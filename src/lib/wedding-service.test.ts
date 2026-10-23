@@ -5,14 +5,7 @@ import { decisionTemplatesForTrack } from "@/data/decision-templates";
 import { templatesForTrack } from "@/data/task-templates";
 import { addDays, todayIso } from "@/lib/format";
 import { setupTestDb, teardownTestDb } from "@/test/db";
-import { createWedding, ensureTemplates, rescheduleTemplates } from "./wedding-service";
-
-let n = 0;
-async function makeUser() {
-  const id = `u${++n}`;
-  await db.insert(schema.user).values({ id, name: "נועה", email: `${id}@example.com` });
-  return id;
-}
+import { createWedding, deleteWedding, ensureMembers, ensureTemplates, rescheduleTemplates, syncMemberNames } from "./wedding-service";
 
 const base = { partnerAName: "נועה", partnerBName: "דן", guestCap: 40, calendarCustom: "ashkenaz" as const, city: "Tel Aviv" };
 
@@ -24,12 +17,19 @@ describe("wedding service (PGlite)", () => {
     await teardownTestDb();
   });
 
-  it("creates the workspace, makes the creator owner/partner A and seeds tasks, decisions, criteria and options", async () => {
-    const userId = await makeUser();
-    const id = await createWedding({ ...base, userId, weddingDate: null, ceremonyTrack: "rabbinate" });
+  it("creates the workspace with both partners and seeds tasks, decisions, criteria and options", async () => {
+    const id = await createWedding({ ...base, weddingDate: null, ceremonyTrack: "rabbinate" });
 
-    const [member] = await db.select().from(schema.weddingMembers).where(eq(schema.weddingMembers.weddingId, id));
-    expect(member).toMatchObject({ userId, role: "owner", partner: "a" });
+    const members = await db
+      .select({ partner: schema.weddingMembers.partner, role: schema.weddingMembers.role, name: schema.user.name })
+      .from(schema.weddingMembers)
+      .innerJoin(schema.user, eq(schema.user.id, schema.weddingMembers.userId))
+      .where(eq(schema.weddingMembers.weddingId, id))
+      .orderBy(schema.weddingMembers.partner);
+    expect(members).toEqual([
+      { partner: "a", role: "owner", name: "נועה" },
+      { partner: "b", role: "partner", name: "דן" },
+    ]);
 
     const tasks = await db.select().from(schema.tasks).where(eq(schema.tasks.weddingId, id));
     expect(tasks).toHaveLength(templatesForTrack("rabbinate").length);
@@ -45,8 +45,7 @@ describe("wedding service (PGlite)", () => {
   });
 
   it("is idempotent and never overwrites edits; switching track only adds what is missing", async () => {
-    const userId = await makeUser();
-    const id = await createWedding({ ...base, userId, weddingDate: null, ceremonyTrack: "rabbinate" });
+    const id = await createWedding({ ...base, weddingDate: null, ceremonyTrack: "rabbinate" });
     const count = async () => (await db.select().from(schema.tasks).where(eq(schema.tasks.weddingId, id))).length;
     const before = await count();
 
@@ -63,9 +62,8 @@ describe("wedding service (PGlite)", () => {
   });
 
   it("compresses long-horizon offsets for a close wedding but keeps the rabbinate deadline honest", async () => {
-    const userId = await makeUser();
     const today = todayIso();
-    const id = await createWedding({ ...base, userId, weddingDate: addDays(today, 100), ceremonyTrack: "rabbinate" });
+    const id = await createWedding({ ...base, weddingDate: addDays(today, 100), ceremonyTrack: "rabbinate" });
     const tasks = await db.select().from(schema.tasks).where(eq(schema.tasks.weddingId, id));
 
     const soft = tasks.filter((t) => !t.hardDeadline && (t.dueOffsetDays ?? 0) > 30);
@@ -77,9 +75,8 @@ describe("wedding service (PGlite)", () => {
   });
 
   it("reschedules open template items when the date moves, leaving done tasks and explicit dates alone", async () => {
-    const userId = await makeUser();
     const today = todayIso();
-    const id = await createWedding({ ...base, userId, weddingDate: addDays(today, 400), ceremonyTrack: "rabbinate" });
+    const id = await createWedding({ ...base, weddingDate: addDays(today, 400), ceremonyTrack: "rabbinate" });
     const get = async (key: string) => (await db.select().from(schema.tasks).where(and(eq(schema.tasks.weddingId, id), eq(schema.tasks.templateKey, key))))[0]!;
 
     expect((await get("venue")).dueOffsetDays).toBe(160);
@@ -94,5 +91,40 @@ describe("wedding service (PGlite)", () => {
 
     await rescheduleTemplates(id, addDays(today, 400));
     expect((await get("venue")).dueOffsetDays).toBe(160); // relaxed again
+  });
+
+  it("repairs a wedding that only has partner A, safely even when called concurrently", async () => {
+    const [w] = await db.insert(schema.weddings).values({ partnerAName: "א", partnerBName: "ב" }).returning();
+    await db.insert(schema.user).values({ id: "legacy-a", name: "A", email: "legacy-a@example.com" });
+    await db.insert(schema.weddingMembers).values({ weddingId: w!.id, userId: "legacy-a", role: "owner", partner: "a" });
+
+    await Promise.all([ensureMembers(w!.id, { a: "א", b: "ב" }), ensureMembers(w!.id, { a: "א", b: "ב" }), ensureMembers(w!.id, { a: "א", b: "ב" })]);
+
+    const members = await db.select().from(schema.weddingMembers).where(eq(schema.weddingMembers.weddingId, w!.id));
+    expect(members.map((m) => m.partner).sort()).toEqual(["a", "b"]);
+    // the identities that lost the race were removed again: exactly one stand-in user was kept for B
+    const standIns = await db.select().from(schema.user).where(eq(schema.user.name, "ב"));
+    expect(standIns).toHaveLength(1);
+  });
+
+  it("keeps stand-in names in step with the wedding and deletes them with it", async () => {
+    const id = await createWedding({ ...base, weddingDate: null, ceremonyTrack: "rabbinate" });
+    await syncMemberNames(id, { a: "בן", b: "יערה" });
+    const names = async () =>
+      (
+        await db
+          .select({ name: schema.user.name })
+          .from(schema.weddingMembers)
+          .innerJoin(schema.user, eq(schema.user.id, schema.weddingMembers.userId))
+          .where(eq(schema.weddingMembers.weddingId, id))
+          .orderBy(schema.weddingMembers.partner)
+      ).map((r) => r.name);
+    expect(await names()).toEqual(["בן", "יערה"]);
+
+    const before = (await db.select().from(schema.user)).length;
+    await deleteWedding(id);
+    expect((await db.select().from(schema.weddings).where(eq(schema.weddings.id, id))).length).toBe(0);
+    expect((await db.select().from(schema.tasks).where(eq(schema.tasks.weddingId, id))).length).toBe(0);
+    expect((await db.select().from(schema.user)).length).toBe(before - 2);
   });
 });

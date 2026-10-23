@@ -1,5 +1,5 @@
 {
-  "id": "f09b3c9d-0025-4045-8bc4-0fca9e9cff6e",
+  "id": "a4b61e1f-3d97-434c-ab3d-f418b828f86e",
   "prevId": "836ee9d5-53e5-41c0-98b6-c186526664a4",
   "version": "7",
   "dialect": "postgresql",
@@ -1008,100 +1008,6 @@
       "checkConstraints": {},
       "isRLSEnabled": true
     },
-    "public.guest_candidates": {
-      "name": "guest_candidates",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "wedding_id": {
-          "name": "wedding_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "phone": {
-          "name": "phone",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_contact_at": {
-          "name": "last_contact_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "guest_candidates_wedding_phone_uq": {
-          "name": "guest_candidates_wedding_phone_uq",
-          "columns": [
-            {
-              "expression": "wedding_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "phone",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "guest_candidates_wedding_id_weddings_id_fk": {
-          "name": "guest_candidates_wedding_id_weddings_id_fk",
-          "tableFrom": "guest_candidates",
-          "tableTo": "weddings",
-          "columnsFrom": [
-            "wedding_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": true
-    },
     "public.guests": {
       "name": "guests",
       "schema": "",
@@ -2087,6 +1993,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "wedding_members_partner_uq": {
+          "name": "wedding_members_partner_uq",
+          "columns": [
+            {
+              "expression": "wedding_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "partner",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"wedding_members\".\"partner\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}

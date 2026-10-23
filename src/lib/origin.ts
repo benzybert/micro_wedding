@@ -9,5 +9,5 @@ export async function getOrigin(): Promise<string> {
     const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
     return `${proto}://${host}`;
   }
-  return process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  return process.env.PUBLIC_URL ?? "http://localhost:3000";
 }

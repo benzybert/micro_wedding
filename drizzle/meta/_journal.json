@@ -19,8 +19,15 @@
     {
       "idx": 2,
       "version": "7",
-      "when": 1792726703100,
-      "tag": "0002_guest_candidates",
+      "when": 1792726181790,
+      "tag": "0002_one_member_per_partner",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792743120180,
+      "tag": "0003_guest_candidates",
       "breakpoints": true
     }
   ]

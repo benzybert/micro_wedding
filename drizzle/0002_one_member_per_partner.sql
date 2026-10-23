@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "wedding_members_partner_uq" ON "wedding_members" USING btree ("wedding_id","partner") WHERE "wedding_members"."partner" is not null;

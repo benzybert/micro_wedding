@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/page";
 import { ConfirmButton } from "@/components/guests/client-bits";
 import { CandidatesReview, WhatsappUploadForm, type ReviewRow } from "@/components/guests/whatsapp-forms";
 import { clearCandidatesAction } from "@/app/actions/whatsapp";
+import { plural } from "@/lib/format";
 import { formatPhone } from "@/lib/phone";
 import { getCandidateData } from "@/lib/queries";
 import { requireWorkspace } from "@/lib/session";
@@ -40,6 +41,13 @@ export default async function WhatsappImportPage() {
       <PageHeader title="ייבוא מוואטסאפ" description="שואבים את האנשים שדיברתם איתם בטווח זמן שתבחרו, ומאשרים כן או לא לכל אחד לפני שהוא נכנס לרשימת האורחים." />
 
       <div className="flex flex-col gap-6">
+        {/* The review card disappears once everyone is decided, and with it any action message: show the outcome itself. */}
+        {rows.length === 0 && rejectedCount > 0 ? (
+          <p role="status" className="rounded-xl bg-sage-soft px-4 py-3 text-sm text-sage-ink">
+            אין מי שממתין להחלטה. {plural(rejectedCount, "אדם נדחה", "אנשים נדחו")} ולא יוצעו שוב.
+          </p>
+        ) : null}
+
         {rows.length ? (
           <Card>
             <SectionTitle>ממתינים להחלטה ({rows.length})</SectionTitle>
@@ -81,6 +89,7 @@ export default async function WhatsappImportPage() {
           <ul className="list-disc space-y-1 ps-5 text-sm text-muted">
             <li>רק שם, טלפון ומועד ההודעה האחרונה, ורק למי שבטווח הזמן שבחרתם. אף פעם לא תוכן הודעות, וקבוצות לא נכללות.</li>
             <li>כן: האדם הופך לאורח ונמחק מרשימת האישור. לא: נשמר רק סימון כדי לא להציע אותו שוב.</li>
+            <li>האתר פתוח לכל מי שיש לו את הכתובת, והרשימה הזאת מכילה אנשים שלא ביקשו להיות בה. מומלץ לסיים את ההחלטות ולמחוק אותה מיד.</li>
             <li>אפשר למחוק את הכול בכל רגע, והכול נמחק גם עם מחיקת החתונה.</li>
           </ul>
           {rows.length || rejectedCount ? (

@@ -1,8 +1,39 @@
 import { expect, test } from "@playwright/test";
-import { newUser, signUp } from "./helpers";
+import { pick, resetSite, runSetup, twoPlanners } from "./helpers";
+
+test.beforeEach(async ({ browser }) => {
+  await resetSite(browser);
+});
+
+test("no login: the first visit asks for setup once, then for 'who are you', and nothing else", async ({ browser }) => {
+  const ctx = await browser.newContext({ locale: "he-IL" });
+  const page = await ctx.newPage();
+  await page.goto("/guests");
+  await expect(page).toHaveURL(/\/onboarding$/); // nothing exists yet
+  await runSetup(page, "בן", "יערה");
+
+  // an unknown device must pick a partner before it sees anything
+  const anon = await browser.newContext({ locale: "he-IL" });
+  const fresh = await anon.newPage();
+  await fresh.goto("/guests");
+  await expect(fresh).toHaveURL(/\/who$/);
+  await expect(fresh.getByRole("button", { name: "אני בן" })).toBeVisible();
+  expect((await anon.request.get("/guests/export")).status()).toBe(401);
+  expect((await anon.request.get("/settings/export")).status()).toBe(401);
+
+  await pick(fresh, "b");
+  await expect(fresh.getByText("אני יערה").first()).toBeVisible();
+  expect((await anon.request.get("/guests/export")).status()).toBe(200);
+
+  // setup cannot be run a second time, and there is no sign-in or sign-up page any more
+  await fresh.goto("/onboarding");
+  await expect(fresh).toHaveURL(/\/home$/);
+  expect((await fresh.goto("/login"))!.status()).toBe(404);
+  expect((await fresh.goto("/signup"))!.status()).toBe(404);
+});
 
 test("guest list → WhatsApp invite → public RSVP → the couple sees the answer", async ({ browser }) => {
-  const { page } = await newUser(browser, "נועה כהן", "דן");
+  const { a: page } = await twoPlanners(browser, "בן", "יערה");
 
   await page.goto("/guests/new");
   await page.fill("input[name=name]", "משפחת כהן");
@@ -17,9 +48,9 @@ test("guest list → WhatsApp invite → public RSVP → the couple sees the ans
   const wa = await page.locator('a[href^="https://wa.me/972501112222"]').first().getAttribute("href");
   const message = decodeURIComponent(wa!.split("text=")[1]!);
   const link = message.match(/https?:\/\/\S+\/rsvp\/[\w-]+/)![0];
-  expect(message).toContain("נועה ודן");
+  expect(message).toContain("בן ויערה");
 
-  // The guest has no account.
+  // The guest has no identity cookie and needs none.
   const guestCtx = await browser.newContext({ locale: "he-IL" });
   const guest = await guestCtx.newPage();
   await guest.goto(link);
@@ -28,15 +59,14 @@ test("guest list → WhatsApp invite → public RSVP → the couple sees the ans
   await guest.locator("input[type=radio][value=no]").nth(2).check({ force: true });
   await guest.click("main form button[type=submit]");
   await expect(guest.getByText("תודה")).toBeVisible();
+  expect((await guest.goto("/rsvp/not-a-real-token"))!.status()).toBe(404);
 
   await page.goto("/home");
   await expect(page.getByText("משפחת כהן: 2 מגיעים, 1 לא")).toBeVisible();
-  await page.goto("/guests");
-  await expect(page.getByText("מגיעים").first()).toBeVisible();
 });
 
-test("two partners: blind scoring, disagreement, then a recorded decision", async ({ browser }) => {
-  const { page: a } = await newUser(browser, "נועה כהן", "דן");
+test("two partners on two devices: blind scoring, disagreement, then a recorded decision", async ({ browser }) => {
+  const { a, b } = await twoPlanners(browser, "בן", "יערה");
 
   await a.goto("/decisions");
   await a.getByText("סוג המקום").click();
@@ -49,31 +79,15 @@ test("two partners: blind scoring, disagreement, then a recorded decision", asyn
   await a.getByRole("button", { name: "שמירת הציונים שלי" }).click();
   await expect(a.getByText("הציונים שלך נשמרו")).toBeVisible();
 
-  await a.goto("/settings");
-  await a.getByRole("button", { name: /הזמנת דן/ }).click();
-  const joinUrl = (await a.locator('p[dir=ltr]:has-text("/join/")').first().innerText()).trim();
-
-  const bCtx = await browser.newContext({ locale: "he-IL" });
-  const b = await bCtx.newPage();
-  await b.goto(joinUrl);
-  await b.getByRole("link", { name: "יצירת חשבון והצטרפות" }).click();
-  await b.fill("input[name=name]", "דן לוי");
-  await b.fill("input[name=email]", `b.${Date.now()}@example.com`);
-  await b.fill("input[name=password]", "correct-horse-9");
-  await b.click("main form button[type=submit]");
-  await b.waitForURL("**/join/**");
-  await b.click("main form button[type=submit]");
-  await b.waitForURL("**/home");
-
   await b.goto(decisionUrl);
-  // blind: nothing of noa's scores is visible before dan rates
-  await expect(b.locator('span:has-text("נועה:")')).toHaveCount(0);
+  // blind: nothing of the other partner's scores is visible before rating
+  await expect(b.locator('span:has-text("בן:")')).toHaveCount(0);
   const bCells = b.locator('select[name^="s_"]');
   for (let i = 0; i < n; i++) await bCells.nth(i).selectOption(String(i < perOption ? 1 : 5));
   await b.getByRole("button", { name: "שמירת הציונים שלי" }).click();
   await expect(b.getByText("הציונים שלך נשמרו")).toBeVisible();
   await b.reload();
-  await expect(b.locator('span:has-text("נועה:")').first()).toBeVisible();
+  await expect(b.locator('span:has-text("בן:")').first()).toBeVisible();
   await expect(b.getByText("איפה אתם לא מסכימים")).toBeVisible();
 
   await a.goto(decisionUrl);
@@ -83,62 +97,48 @@ test("two partners: blind scoring, disagreement, then a recorded decision", asyn
   await expect(a.getByText(/הוחלט:/).first()).toBeVisible();
 });
 
-test("tenant isolation: another wedding's ids are simply not found", async ({ browser }) => {
-  const { page: a } = await newUser(browser, "נועה כהן", "דן");
-  await a.goto("/guests/new");
-  await a.fill("input[name=name]", "אורח פרטי");
-  await a.click("main form:has(input[name=name]) button[type=submit]");
-  await a.waitForURL("**/guests");
-  await a.getByRole("link", { name: "אורח פרטי" }).click();
-  await a.waitForURL("**/guests/*");
-  const guestUrl = new URL(a.url()).pathname;
-  await a.goto("/decisions");
-  await a.getByText("תאריך החתונה").first().click();
-  await a.waitForURL("**/decisions/*");
-  const decisionPath = new URL(a.url()).pathname;
-
-  const { page: c } = await newUser(browser, "מישהי אחרת", "מישהו");
-  expect((await c.goto(guestUrl))!.status()).toBe(404);
-  expect((await c.goto(decisionPath))!.status()).toBe(404);
-
-  // unauthenticated: exports are refused, the app redirects to login
-  const anon = await browser.newContext();
-  expect((await anon.request.get("/guests/export")).status()).toBe(401);
-  expect((await anon.request.get("/settings/export")).status()).toBe(401);
-  const page = await anon.newPage();
-  await page.goto("/home");
-  await expect(page).toHaveURL(/\/login/);
+test("renaming a partner in settings renames the identity used in scores and activity", async ({ browser }) => {
+  const { a } = await twoPlanners(browser, "בן", "יערה");
+  await a.goto("/settings");
+  await a.fill("input[name=partnerBName]", "יערה לוי");
+  await a.click("form:has(input[name=venueName]) button[type=submit]");
+  await expect(a.getByText("נשמר")).toBeVisible();
+  await a.goto("/settings");
+  await expect(a.getByText("יערה לוי").first()).toBeVisible();
 });
 
 test("date finder respects the custom: Lag BaOmer is open for Ashkenazim, closed for Sephardim", async ({ browser }) => {
-  const { page } = await newUser(browser, "נועה כהן", "דן");
+  const { a: page } = await twoPlanners(browser);
   await page.goto("/date?check=2026-05-05");
   await expect(page.getByText("ל״ג בעומר").first()).toBeVisible();
   await expect(page.getByText("אפשרי").first()).toBeVisible();
 
   await page.goto("/settings");
-  await page.locator('input[name=calendarCustom][value=sepharad]').check();
+  await page.locator("input[name=calendarCustom][value=sepharad]").check();
   await page.click("form:has(input[name=venueName]) button[type=submit]");
   await expect(page.getByText("נשמר")).toBeVisible();
   await page.goto("/date?check=2026-05-05");
   await expect(page.getByText("לא אפשרי").first()).toBeVisible();
 });
 
-test("signup rejects a weak password and a duplicate email", async ({ page }) => {
-  await page.goto("/signup");
-  await page.fill("input[name=name]", "טסט");
-  await page.fill("input[name=email]", "weak@example.com");
-  await page.fill("input[name=password]", "short");
-  await page.click("main form button[type=submit]");
-  await expect(page).toHaveURL(/\/signup/);
+test("the wedding date can be cleared in settings: nothing breaks and the plan shows days-before instead", async ({ browser }) => {
+  const { a: page } = await twoPlanners(browser);
+  await page.goto("/home");
+  await expect(page.getByText("ימים עד החתונה")).toBeVisible();
 
-  const email = `dup.${Date.now()}@example.com`;
-  await signUp(page, "ראשון", email);
-  await page.context().clearCookies();
-  await page.goto("/signup");
-  await page.fill("input[name=name]", "שני");
-  await page.fill("input[name=email]", email);
-  await page.fill("input[name=password]", "correct-horse-9");
-  await page.click("main form button[type=submit]");
-  await expect(page.getByText("כבר קיים חשבון")).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.locator("input[name=weddingDate]")).toHaveValue("2027-03-23");
+  await page.getByRole("button", { name: "ניקוי" }).first().click();
+  await expect(page.locator("input[name=weddingDate]")).toHaveValue("");
+  await page.click("form:has(input[name=venueName]) button[type=submit]");
+  await expect(page.getByText("נשמר")).toBeVisible();
+
+  await page.goto("/home");
+  await expect(page.getByText("עוד אין תאריך")).toBeVisible();
+  for (const path of ["/tasks", "/decisions", "/timeline", "/date", "/guests", "/budget", "/settings"]) {
+    const res = await page.goto(path);
+    expect(res!.status(), path).toBe(200);
+  }
+  await page.goto("/settings");
+  await expect(page.locator("input[name=weddingDate]")).toHaveValue("");
 });

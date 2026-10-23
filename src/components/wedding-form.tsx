@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { ActionForm, SubmitButton } from "@/components/ui/form";
-import { Field, Select, Textarea, TextField } from "@/components/ui/field";
+import { Field, Input, Select, Textarea, TextField } from "@/components/ui/field";
 import { CITIES } from "@/data/cities";
 import { DEFAULT_INVITATION, DEFAULT_REMINDER } from "@/lib/guests";
 import type { ActionState } from "@/lib/action-state";
@@ -31,6 +32,25 @@ const TRACKS = [
   { value: "other", label: "עוד לא החלטנו / אחר" },
 ];
 
+/** A date input that can be emptied: phone date pickers often have no way to clear a chosen date. */
+function OptionalDate({ label, name, initial, hint }: { label: string; name: string; initial: string | null | undefined; hint?: string }) {
+  const [value, setValue] = useState(initial ?? "");
+  return (
+    <Field label={label} hint={hint}>
+      {(a) => (
+        <div className="flex items-center gap-2">
+          <Input {...a} name={name} type="date" value={value} onChange={(e) => setValue(e.target.value)} className="min-w-0 flex-1" />
+          {value ? (
+            <button type="button" onClick={() => setValue("")} className="min-h-11 shrink-0 rounded-xl border border-line px-3 text-sm text-muted hover:bg-surface-2">
+              ניקוי
+            </button>
+          ) : null}
+        </div>
+      )}
+    </Field>
+  );
+}
+
 export function WeddingForm({
   action,
   values = {},
@@ -44,17 +64,16 @@ export function WeddingForm({
   return (
     <ActionForm action={action} className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField label="השם שלך" name="partnerAName" required maxLength={60} defaultValue={values.partnerAName} />
-        <TextField label="בן/בת הזוג" name="partnerBName" required maxLength={60} defaultValue={values.partnerBName} />
+        <TextField label="שם ראשון" name="partnerAName" required maxLength={60} defaultValue={values.partnerAName} />
+        <TextField label="שם שני" name="partnerBName" required maxLength={60} defaultValue={values.partnerBName} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField
+        <OptionalDate
           label="תאריך החתונה (אם כבר יש)"
           name="weddingDate"
-          type="date"
-          defaultValue={values.weddingDate ?? ""}
-          hint="אפשר להשאיר ריק ולמצוא תאריך בעמוד התאריך"
+          initial={values.weddingDate}
+          hint="אפשר להשאיר ריק עד שמתייעצים עם מסדר הקידושין או יועץ. המשימות וההחלטות יוצגו לפי ״כמה ימים לפני״, ויקבלו תאריכים כשתזינו תאריך."
         />
         <TextField
           label="תקרת אורחים"
@@ -121,7 +140,7 @@ export function WeddingForm({
             <TextField label="שם המקום" name="venueName" maxLength={120} defaultValue={values.venueName ?? ""} />
             <TextField label="כתובת" name="venueAddress" maxLength={200} defaultValue={values.venueAddress ?? ""} />
             <TextField label="שעת תחילה" name="startTime" type="time" defaultValue={values.startTime ?? ""} />
-            <TextField label="מועד אחרון לאישור הגעה" name="rsvpDeadline" type="date" defaultValue={values.rsvpDeadline ?? ""} />
+            <OptionalDate label="מועד אחרון לאישור הגעה" name="rsvpDeadline" initial={values.rsvpDeadline} />
           </div>
           <Field label="הערה לאורחים בעמוד האישור" hint="קוד לבוש, חניה, מדיניות ילדים וכו׳">
             {(a) => <Textarea {...a} name="rsvpNote" maxLength={600} defaultValue={values.rsvpNote ?? ""} />}
