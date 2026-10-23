@@ -7,7 +7,7 @@ src/app/onboarding/      הגדרה ראשונית, פעם אחת (רק כשעו
 src/app/who/             בחירת "אני בן / אני יערה" (עוגייה, בלי סיסמה)
 src/app/(workspace)/     האפליקציה: home, guests, decisions, date, budget, vendors, tasks, timeline, settings
 src/app/rsvp/[token]/    עמוד אישור הגעה ציבורי לאורחים (סוד בקישור)
-src/app/join/[token]/    הצטרפות בן/בת זוג להזמנה
+src/app/healthz/         בדיקת חיים לשרת האירוח (בלי נתונים)
 src/app/actions/         Server Actions (כל אחת קוראת requireWorkspace ומצמצמת לפי weddingId)
 src/components/          רכיבי UI (ui/ = בסיס, guests/, decisions/ ...)
 src/db/                  סכמת Drizzle, חיבור, מיגרציות
@@ -44,7 +44,7 @@ drizzle/                 מיגרציות SQL (לא עורכים אחרי שהו
 פרויקט `micro-wedding`, סביבת `production`, שני שירותים באותה רשת פרטית:
 
 - **Postgres** (תבנית Railway, Postgres 18 עם SSL, כרך 500MB).
-- **web**: מחובר ל-GitHub (`benzybert/micro_wedding`, ענף `claude/vibrant-bohr-l9tmm5`), נבנה עם Railpack (`npm run build`) ורץ `npm run start`. `railway.json` מגדיר healthcheck על `/login` ומדיניות הפעלה מחדש.
+- **web**: מחובר ל-GitHub (`benzybert/micro_wedding`, ענף `claude/vibrant-bohr-l9tmm5`), נבנה עם Railpack (`npm run build`) ורץ `npm run start`. `railway.json` מגדיר healthcheck על `/healthz` ומדיניות הפעלה מחדש.
 
 משתני סביבה בשירות `web`:
 
