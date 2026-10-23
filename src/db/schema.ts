@@ -175,6 +175,30 @@ export const guests = pgTable(
   ],
 ).enableRLS();
 
+export type CandidateStatus = "pending" | "rejected";
+
+/**
+ * People pulled from the couple's WhatsApp chats who wait for a yes/no. Approved rows are deleted
+ * (they become households + guests); rejected rows stay so the same person is not offered again.
+ * These are not guests, so the whole table is meant to be emptied once the review is done.
+ */
+export const guestCandidates = pgTable(
+  "guest_candidates",
+  {
+    id: id(),
+    weddingId: uuid("wedding_id")
+      .notNull()
+      .references(() => weddings.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** Digits-only international form (see normalizePhone). */
+    phone: text("phone").notNull(),
+    lastContactAt: timestamp("last_contact_at", { withTimezone: true }).notNull(),
+    status: text("status").$type<CandidateStatus>().notNull().default("pending"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("guest_candidates_wedding_phone_uq").on(t.weddingId, t.phone)],
+).enableRLS();
+
 /* ───────────────────────── decisions ───────────────────────── */
 
 export type DecisionStatus = "open" | "researching" | "decided" | "parked";

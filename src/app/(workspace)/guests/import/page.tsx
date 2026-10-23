@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MessageCircle } from "lucide-react";
+import { buttonClass } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
 import { ImportForm } from "@/components/guests/import-form";
@@ -16,7 +17,16 @@ export default async function ImportPage() {
         <ArrowRight className="size-4" aria-hidden />
         חזרה לאורחים
       </Link>
-      <PageHeader title="ייבוא אורחים" description="מדביקים מאקסל או מגוגל שיטס (עם שורת כותרות), או מעלים קובץ CSV." />
+      <PageHeader
+        title="ייבוא אורחים"
+        description="מדביקים מאקסל או מגוגל שיטס (עם שורת כותרות), או מעלים קובץ CSV."
+        actions={
+          <Link href="/guests/import/whatsapp" className={buttonClass("secondary")}>
+            <MessageCircle className="size-4" aria-hidden />
+            ייבוא מוואטסאפ
+          </Link>
+        }
+      />
       <Card>
         <ImportForm />
         <div className="mt-6 rounded-xl bg-surface-2 p-4 text-sm text-muted">

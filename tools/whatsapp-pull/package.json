@@ -1,0 +1,17 @@
+{
+  "name": "whatsapp-pull",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Runs on the couple's own computer: lists recent WhatsApp chats (name, phone, last message time) for micro-wedding's guest import. Never reads message content.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "qrcode-terminal": "0.12.0",
+    "whatsapp-web.js": "1.34.7"
+  }
+}

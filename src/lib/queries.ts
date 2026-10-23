@@ -13,6 +13,20 @@ export async function getGuestData(weddingId: string) {
   return { households, guests, tables };
 }
 
+/** WhatsApp approval list (newest contact first) plus the names already on the guest list, to flag likely duplicates. */
+export async function getCandidateData(weddingId: string) {
+  const [candidates, householdNames, guestNames] = await Promise.all([
+    db.select().from(schema.guestCandidates).where(eq(schema.guestCandidates.weddingId, weddingId)).orderBy(desc(schema.guestCandidates.lastContactAt)),
+    db.select({ name: schema.households.name }).from(schema.households).where(eq(schema.households.weddingId, weddingId)),
+    db.select({ name: schema.guests.name }).from(schema.guests).where(eq(schema.guests.weddingId, weddingId)),
+  ]);
+  return {
+    pending: candidates.filter((c) => c.status === "pending"),
+    rejectedCount: candidates.filter((c) => c.status === "rejected").length,
+    knownNames: [...householdNames, ...guestNames].map((n) => n.name),
+  };
+}
+
 export function getTasks(weddingId: string) {
   return db.select().from(schema.tasks).where(eq(schema.tasks.weddingId, weddingId)).orderBy(asc(schema.tasks.sortOrder), asc(schema.tasks.createdAt));
 }

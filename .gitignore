@@ -10,3 +10,8 @@ coverage
 .vercel
 playwright-report
 test-results
+
+# tools/whatsapp-pull: WhatsApp login session and the exported chat list (personal data)
+tools/whatsapp-pull/.session
+tools/whatsapp-pull/.wwebjs_cache
+tools/whatsapp-pull/whatsapp-chats*.json

@@ -269,10 +269,13 @@ export default async function GuestsPage({ searchParams }: { searchParams: Promi
           </Card>
           <Card>
             <SectionTitle>ייבוא וייצוא</SectionTitle>
-            <p className="mb-3 text-sm text-muted">מעבירים רשימה מאקסל או מקובץ אנשי קשר, או מורידים את הרשימה לקובץ שנפתח באקסל.</p>
+            <p className="mb-3 text-sm text-muted">מעבירים רשימה מאקסל, מקובץ אנשי קשר או משיחות וואטסאפ אחרונות, או מורידים את הרשימה לקובץ שנפתח באקסל.</p>
             <div className="flex flex-wrap gap-2">
               <Link href="/guests/import" className={buttonClass("secondary")}>
                 <Upload className="size-4" aria-hidden /> ייבוא
+              </Link>
+              <Link href="/guests/import/whatsapp" className={buttonClass("secondary")}>
+                <MessageCircle className="size-4" aria-hidden /> מוואטסאפ
               </Link>
               <a href="/guests/export" className={buttonClass("secondary")}>
                 <Download className="size-4" aria-hidden /> ייצוא ל-CSV

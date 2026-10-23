@@ -15,6 +15,13 @@
       "when": 1792703604815,
       "tag": "0001_lock_public_api",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792726703100,
+      "tag": "0002_guest_candidates",
+      "breakpoints": true
     }
   ]
 }

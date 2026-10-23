@@ -13,6 +13,7 @@ src/db/                  סכמת Drizzle, חיבור, מיגרציות
 src/lib/                 לוגיקה טהורה עם מבחנים (guests, decisions, budget, tasks, hebrew-calendar, plan-schedule, csv, phone, messages) ושירותים (wedding-service, session, queries)
 src/data/                תבניות: משימות, החלטות, לו״ז, תקציב, ערים
 drizzle/                 מיגרציות SQL (לא עורכים אחרי שהוחלו)
+tools/whatsapp-pull/     כלי מקומי (לא חלק מהאפליקציה) שמכין קובץ שיחות וואטסאפ אחרונות לייבוא אורחים; תלויות משלו
 ```
 
 ## עקרונות
@@ -25,7 +26,7 @@ drizzle/                 מיגרציות SQL (לא עורכים אחרי שהו
 
 ## נתונים
 
-אין מצב משותף בין בני הזוג מלבד מסד הנתונים. טבלאות לפי אזורים: חשבון (Better Auth), חתונה וחברים, אורחים (households, guests, seating_tables), החלטות (decisions, options, criteria, scores, comments), כסף (budget_items, vendors), משימות ולו״ז, activity.
+אין מצב משותף בין בני הזוג מלבד מסד הנתונים. טבלאות לפי אזורים: חשבון (Better Auth), חתונה וחברים, אורחים (households, guests, seating_tables, guest_candidates: רשימת אישור זמנית לייבוא מוואטסאפ), החלטות (decisions, options, criteria, scores, comments), כסף (budget_items, vendors), משימות ולו״ז, activity.
 
 - בכל הטבלאות RLS מופעל ללא מדיניות (האפליקציה מתחברת כבעלים). מיגרציה `0001` מסירה הרשאות מ-`anon`/`authenticated` אם קיימים.
 - מזהה משק בית לאישור הגעה: `rsvp_token` אקראי (128 ביט). הזמנת בן/בת זוג: `token_hash` בלבד (SHA-256), תקף 7 ימים, חד-פעמי.
