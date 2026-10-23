@@ -12,6 +12,7 @@ export async function register() {
     if (!process.env.DATABASE_URL) throw new Error("AUTO_MIGRATE=1 requires DATABASE_URL");
     const { runMigrations } = await import("@/db/migrate");
     await runMigrations();
+    console.log("[db] migrations are up to date");
     return;
   }
 
