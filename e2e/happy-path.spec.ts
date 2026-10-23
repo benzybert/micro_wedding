@@ -120,3 +120,25 @@ test("date finder respects the custom: Lag BaOmer is open for Ashkenazim, closed
   await page.goto("/date?check=2026-05-05");
   await expect(page.getByText("לא אפשרי").first()).toBeVisible();
 });
+
+test("the wedding date can be cleared in settings: nothing breaks and the plan shows days-before instead", async ({ browser }) => {
+  const { a: page } = await twoPlanners(browser);
+  await page.goto("/home");
+  await expect(page.getByText("ימים עד החתונה")).toBeVisible();
+
+  await page.goto("/settings");
+  await expect(page.locator("input[name=weddingDate]")).toHaveValue("2027-03-23");
+  await page.getByRole("button", { name: "ניקוי" }).first().click();
+  await expect(page.locator("input[name=weddingDate]")).toHaveValue("");
+  await page.click("form:has(input[name=venueName]) button[type=submit]");
+  await expect(page.getByText("נשמר")).toBeVisible();
+
+  await page.goto("/home");
+  await expect(page.getByText("עוד אין תאריך")).toBeVisible();
+  for (const path of ["/tasks", "/decisions", "/timeline", "/date", "/guests", "/budget", "/settings"]) {
+    const res = await page.goto(path);
+    expect(res!.status(), path).toBe(200);
+  }
+  await page.goto("/settings");
+  await expect(page.locator("input[name=weddingDate]")).toHaveValue("");
+});

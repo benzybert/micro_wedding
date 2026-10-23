@@ -101,7 +101,7 @@ export default async function TasksPage() {
         <ProgressBar value={progress.done} max={Math.max(progress.total, 1)} tone="sage" label="משימות שהושלמו" />
         {!wedding.weddingDate ? (
           <p className="mt-3 text-sm text-amber-ink">
-            עוד אין תאריך חתונה, ולכן המשימות מוצגות לפי &quot;כמה ימים לפני&quot;. <Link href="/date" className="font-medium underline">בחרו תאריך</Link> והן יקבלו תאריכים.
+            עוד אין תאריך חתונה, ולכן המשימות מוצגות לפי &quot;כמה ימים לפני&quot;. <Link href="/settings" className="font-medium underline">הזינו תאריך בהגדרות</Link> כשיהיה, והן יקבלו תאריכים.
           </p>
         ) : null}
       </Card>

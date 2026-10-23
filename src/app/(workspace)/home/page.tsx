@@ -64,7 +64,7 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-muted">עוד לא נבחר תאריך. נתחיל משם: בודקים מה אפשרי לפי הלוח העברי והמנהג שלכם.</p>
+            <p className="text-muted">עוד אין תאריך, וזה בסדר. אפשר לבדוק מה אפשרי לפי הלוח העברי והמנהג שלכם, ולהזין תאריך בהגדרות כשיהיה.</p>
             <Link href="/date" className={buttonClass("primary")}>
               <CalendarDays className="size-4" aria-hidden />
               למצוא תאריך
