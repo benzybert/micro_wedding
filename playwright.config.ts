@@ -12,7 +12,7 @@ export default defineConfig({
   // A throwaway in-memory database, so every run starts empty.
   webServer: {
     command: `npx next dev -p ${port}`,
-    url: `http://localhost:${port}/login`,
+    url: `http://localhost:${port}/`,
     reuseExistingServer: true,
     timeout: 120_000,
     env: { PGLITE_DIR: "memory://", DATABASE_URL: "" },

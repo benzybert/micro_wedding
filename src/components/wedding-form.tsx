@@ -44,8 +44,8 @@ export function WeddingForm({
   return (
     <ActionForm action={action} className="flex flex-col gap-5">
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField label="השם שלך" name="partnerAName" required maxLength={60} defaultValue={values.partnerAName} />
-        <TextField label="בן/בת הזוג" name="partnerBName" required maxLength={60} defaultValue={values.partnerBName} />
+        <TextField label="שם ראשון" name="partnerAName" required maxLength={60} defaultValue={values.partnerAName} />
+        <TextField label="שם שני" name="partnerBName" required maxLength={60} defaultValue={values.partnerBName} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

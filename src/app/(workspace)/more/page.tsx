@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { UserRound } from "lucide-react";
 import { MoreList } from "@/components/nav";
 import { PageHeader } from "@/components/ui/page";
-import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/app/actions/auth";
+import { buttonClass } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "עוד" };
 
@@ -12,12 +12,10 @@ export default function MorePage() {
     <>
       <PageHeader title="עוד" />
       <MoreList />
-      <form action={signOutAction} className="mt-6">
-        <Button type="submit" variant="secondary" className="w-full">
-          <LogOut className="size-4" aria-hidden />
-          התנתקות
-        </Button>
-      </form>
+      <Link href="/who" className={buttonClass("secondary", "md", "mt-6 w-full")}>
+        <UserRound className="size-4" aria-hidden />
+        החלפת מתכנן/ת
+      </Link>
     </>
   );
 }

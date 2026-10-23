@@ -3,9 +3,10 @@
 ## מבנה
 
 ```
-src/app/(auth)/          התחברות והרשמה
-src/app/(workspace)/     האפליקציה (אחרי התחברות): home, guests, decisions, date, budget, vendors, tasks, timeline, settings
-src/app/rsvp/[token]/    עמוד אישור הגעה ציבורי (בלי התחברות, סוד בקישור)
+src/app/onboarding/      הגדרה ראשונית, פעם אחת (רק כשעוד אין חתונה באתר)
+src/app/who/             בחירת "אני בן / אני יערה" (עוגייה, בלי סיסמה)
+src/app/(workspace)/     האפליקציה: home, guests, decisions, date, budget, vendors, tasks, timeline, settings
+src/app/rsvp/[token]/    עמוד אישור הגעה ציבורי לאורחים (סוד בקישור)
 src/app/join/[token]/    הצטרפות בן/בת זוג להזמנה
 src/app/actions/         Server Actions (כל אחת קוראת requireWorkspace ומצמצמת לפי weddingId)
 src/components/          רכיבי UI (ui/ = בסיס, guests/, decisions/ ...)
@@ -17,7 +18,8 @@ drizzle/                 מיגרציות SQL (לא עורכים אחרי שהו
 
 ## עקרונות
 
-- **השרת הוא השער.** כל דף קורא `requireWorkspace()`. כל Server Action קורא אותה שוב ומוסיף `weddingId` לכל שאילתה, ולכן מזהה של חתונה אחרת פשוט לא נמצא. אין סיבה להאמין ל-UI.
+- **אין חשבונות.** האתר הוא כלי פרטי של שני אנשים ומחזיק חתונה אחת. עוגייה (`mw_who`) זוכרת מי מהשניים מסתכל, כדי שציונים, הערות ופיד הפעילות ידעו של מי הם. זו בחירת זהות ולא אימות: מי שיש לו את הכתובת יכול להשתמש באתר (ההחלטה של הבעלים).
+- **עדיין שער בשרת.** כל דף וכל Server Action קוראים `requireWorkspace()` (חתונה קיימת וזהות נבחרה) ומוסיפים `weddingId` לכל שאילתה. כך הקוד נשאר בטוח אם יום אחד יהיו כמה חתונות. הגנה על מעבר לכך (סיסמה משותפת, חסימת IP) היא תוספת אופציונלית.
 - **לוגיקה טהורה בנפרד** (`src/lib`), עם Vitest, בלי DB ובלי Next. רק `wedding-service` ו-`schema` נבדקים מול PGlite.
 - **תאריכים הם מחרוזות ISO** (`YYYY-MM-DD`) עם עיגון ל-12:00 UTC, כדי שאזור הזמן של השרת לא יזיז יום.
 - **משימות והחלטות מתבנית נגזרות מתאריך החתונה** (`dueOffsetDays`). שינוי תאריך מזיז את כולן. תאריך שנערך ידנית (`dueDate`) תמיד גובר.
@@ -25,10 +27,11 @@ drizzle/                 מיגרציות SQL (לא עורכים אחרי שהו
 
 ## נתונים
 
-אין מצב משותף בין בני הזוג מלבד מסד הנתונים. טבלאות לפי אזורים: חשבון (Better Auth), חתונה וחברים, אורחים (households, guests, seating_tables), החלטות (decisions, options, criteria, scores, comments), כסף (budget_items, vendors), משימות ולו״ז, activity.
+אין מצב משותף בין בני הזוג מלבד מסד הנתונים. טבלאות לפי אזורים: חתונה ושני המתכננים (`weddings`, `wedding_members`, `user`), אורחים (households, guests, seating_tables), החלטות (decisions, options, criteria, scores, comments), כסף (budget_items, vendors), משימות ולו״ז, activity.
 
 - בכל הטבלאות RLS מופעל ללא מדיניות (האפליקציה מתחברת כבעלים). מיגרציה `0001` מסירה הרשאות מ-`anon`/`authenticated` אם קיימים.
-- מזהה משק בית לאישור הגעה: `rsvp_token` אקראי (128 ביט). הזמנת בן/בת זוג: `token_hash` בלבד (SHA-256), תקף 7 ימים, חד-פעמי.
+- מזהה משק בית לאישור הגעה: `rsvp_token` אקראי (128 ביט).
+- הטבלאות `session`, `account`, `verification` ו-`wedding_invites` נשארו מימי האימות ואינן בשימוש (לא מוחקים ללא צורך).
 
 ## פיתוח מקומי
 
@@ -48,8 +51,6 @@ drizzle/                 מיגרציות SQL (לא עורכים אחרי שהו
 | משתנה | ערך |
 |---|---|
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (כתובת פרטית בתוך הפרויקט) |
-| `BETTER_AUTH_SECRET` | סוד אקראי (`openssl rand -base64 32`) |
-| `BETTER_AUTH_URL` | כתובת הציבורית של השירות |
 | `AUTO_MIGRATE` | `1`: מריץ מיגרציות בעליית השרת (`src/instrumentation.ts`) |
 | `PORT` | `8080` (תואם לדומיין) |
 
@@ -58,10 +59,10 @@ drizzle/                 מיגרציות SQL (לא עורכים אחרי שהו
 ### Vercel (חלופה)
 
 1. ייבוא הריפו ב-Vercel. `vercel.json` מגדיר אזור `fra1`.
-2. משתני סביבה (Production): `DATABASE_URL` (מחרוזת **pooled**), `BETTER_AUTH_SECRET`.
+2. משתנה סביבה (Production): `DATABASE_URL` (מחרוזת **pooled**).
 3. `vercel-build` מריץ מיגרציות (`--if-configured`, מדלג אם אין `DATABASE_URL`) ואז `next build`. אל תגדירו `AUTO_MIGRATE` ב-Vercel.
 4. ענף הייצור ב-Vercel צריך להיות הענף הדיפולטי של הריפו.
 
 ## נקודות פתוחות
 
-אימות אימייל, איפוס סיסמה, Rate limit אמין (כרגע בזיכרון), CSP עם nonce, העלאת קבצים (חוזים, השראה), עדכון בזמן אמת, שליחת הודעות אוטומטית.
+הגנה על הכתובת (האתר פתוח לכל מי שיש לו אותה), Rate limit אמין לאישורי הגעה (כרגע בזיכרון), CSP עם nonce, העלאת קבצים (חוזים, השראה), עדכון בזמן אמת, שליחת הודעות אוטומטית.

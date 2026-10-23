@@ -1,30 +1,49 @@
 import { expect, type Browser, type Page } from "@playwright/test";
 
-let counter = 0;
-export const uniqueEmail = (tag: string) => `${tag}.${Date.now()}.${++counter}@example.com`;
-
-export async function signUp(page: Page, name: string, email = uniqueEmail("u")) {
-  await page.goto("/signup");
-  await page.fill("input[name=name]", name);
-  await page.fill("input[name=email]", email);
-  await page.fill("input[name=password]", "correct-horse-9");
-  await page.click("main form button[type=submit]");
+/** Fill the one-time setup form (names pre-filled by default; override when a test needs specific ones). */
+export async function runSetup(page: Page, a = "נועה", b = "דן", date = "2027-03-23") {
   await page.waitForURL("**/onboarding");
-  return email;
-}
-
-export async function createWedding(page: Page, partnerB: string, date = "2027-03-23") {
-  await page.fill("input[name=partnerBName]", partnerB);
+  await page.fill("input[name=partnerAName]", a);
+  await page.fill("input[name=partnerBName]", b);
   await page.fill("input[name=weddingDate]", date);
   await page.click("main form button[type=submit]");
+  await page.waitForURL("**/who");
+}
+
+export async function pick(page: Page, who: "a" | "b") {
+  await page.goto("/who");
+  await page.locator(`button[name=who][value=${who}]`).click();
   await page.waitForURL("**/home");
   await expect(page.locator("h1")).toBeVisible();
 }
 
-export async function newUser(browser: Browser, name: string, partnerB?: string) {
-  const context = await browser.newContext({ locale: "he-IL" });
-  const page = await context.newPage();
-  await signUp(page, name);
-  if (partnerB) await createWedding(page, partnerB);
-  return { context, page };
+/** Delete the wedding through the real UI so every test starts from a site that needs setup. */
+export async function resetSite(browser: Browser) {
+  const ctx = await browser.newContext({ locale: "he-IL" });
+  const page = await ctx.newPage();
+  await page.goto("/");
+  await page.waitForURL(/\/(onboarding|who)$/);
+  if (page.url().endsWith("/who")) {
+    await page.locator("button[name=who][value=a]").click();
+    await page.waitForURL("**/home");
+    await page.goto("/settings");
+    await page.fill("input[name=confirm]", "מחיקה");
+    await page.getByRole("button", { name: "מחיקה לצמיתות" }).click();
+    await page.waitForURL("**/onboarding");
+  }
+  await ctx.close();
+}
+
+/** Two devices: one per partner, on the same site. */
+export async function twoPlanners(browser: Browser, a = "נועה", b = "דן") {
+  const ctxA = await browser.newContext({ locale: "he-IL" });
+  const pageA = await ctxA.newPage();
+  await pageA.goto("/");
+  await runSetup(pageA, a, b);
+  await pick(pageA, "a");
+
+  const ctxB = await browser.newContext({ locale: "he-IL" });
+  const pageB = await ctxB.newPage();
+  await pick(pageB, "b");
+  return { a: pageA, b: pageB };
 }

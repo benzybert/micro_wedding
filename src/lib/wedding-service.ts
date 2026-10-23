@@ -11,7 +11,6 @@ type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 type Executor = Db | Tx;
 
 export type NewWedding = {
-  userId: string;
   partnerAName: string;
   partnerBName: string;
   weddingDate: string | null;
@@ -21,7 +20,23 @@ export type NewWedding = {
   city: string;
 };
 
-/** Create a workspace, make the user its owner (partner A) and seed the starter checklist and decisions. */
+/**
+ * The site has no accounts, so each planner is a stand-in identity (a `user` row without a password).
+ * Scores, comments and the activity feed still need to know who did what.
+ * The unique (wedding_id, partner) index makes this safe to call concurrently.
+ */
+async function insertPartner(executor: Executor, weddingId: string, partner: "a" | "b", name: string) {
+  const id = crypto.randomUUID();
+  await executor.insert(schema.user).values({ id, name, email: `${id}@wedding.local` });
+  const inserted = await executor
+    .insert(schema.weddingMembers)
+    .values({ weddingId, userId: id, role: partner === "a" ? "owner" : "partner", partner })
+    .onConflictDoNothing()
+    .returning({ userId: schema.weddingMembers.userId });
+  if (!inserted.length) await executor.delete(schema.user).where(eq(schema.user.id, id));
+}
+
+/** Create the wedding with both planners and seed the starter checklist and decisions. */
 export async function createWedding(input: NewWedding): Promise<string> {
   return db.transaction(async (tx) => {
     const [wedding] = await tx
@@ -37,9 +52,39 @@ export async function createWedding(input: NewWedding): Promise<string> {
       })
       .returning({ id: schema.weddings.id });
     const weddingId = wedding!.id;
-    await tx.insert(schema.weddingMembers).values({ weddingId, userId: input.userId, role: "owner", partner: "a" });
+    await insertPartner(tx, weddingId, "a", input.partnerAName);
+    await insertPartner(tx, weddingId, "b", input.partnerBName);
     await ensureTemplates(tx, weddingId, input.ceremonyTrack, input.weddingDate);
     return weddingId;
+  });
+}
+
+/** Make sure both partner slots exist (a wedding created before accounts were removed may only have A). */
+export async function ensureMembers(weddingId: string, names: { a: string; b: string }) {
+  const have = new Set(
+    (await db.select({ p: schema.weddingMembers.partner }).from(schema.weddingMembers).where(eq(schema.weddingMembers.weddingId, weddingId))).map((r) => r.p),
+  );
+  for (const p of ["a", "b"] as const) if (!have.has(p)) await insertPartner(db, weddingId, p, names[p]);
+}
+
+/** Keep the stand-in identities' display names in step with the names on the wedding. */
+export async function syncMemberNames(weddingId: string, names: { a: string; b: string }) {
+  for (const p of ["a", "b"] as const) {
+    const [m] = await db
+      .select({ userId: schema.weddingMembers.userId })
+      .from(schema.weddingMembers)
+      .where(and(eq(schema.weddingMembers.weddingId, weddingId), eq(schema.weddingMembers.partner, p)))
+      .limit(1);
+    if (m) await db.update(schema.user).set({ name: names[p] }).where(eq(schema.user.id, m.userId));
+  }
+}
+
+/** Delete the wedding (everything cascades) and the identities that belonged to it. */
+export async function deleteWedding(weddingId: string) {
+  await db.transaction(async (tx) => {
+    const members = await tx.select({ userId: schema.weddingMembers.userId }).from(schema.weddingMembers).where(eq(schema.weddingMembers.weddingId, weddingId));
+    await tx.delete(schema.weddings).where(eq(schema.weddings.id, weddingId));
+    if (members.length) await tx.delete(schema.user).where(inArray(schema.user.id, members.map((m) => m.userId)));
   });
 }
 

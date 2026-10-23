@@ -1,18 +1,16 @@
 import type { Metadata } from "next";
 import { Card, SectionTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page";
-import { InvitePartner } from "@/components/invite-partner";
+import Link from "next/link";
 import { DeleteWeddingForm } from "@/components/delete-wedding";
 import { WeddingForm } from "@/components/wedding-form";
 import { updateWeddingAction } from "@/app/actions/wedding";
-import { requireWorkspace } from "@/lib/session";
+import { memberLabel, requireWorkspace } from "@/lib/session";
 
 export const metadata: Metadata = { title: "הגדרות" };
 
 export default async function SettingsPage() {
   const { wedding, members, me } = await requireWorkspace();
-  const other = members.find((m) => m.userId !== me.userId);
-  const otherName = me.partner === "b" ? wedding.partnerAName : wedding.partnerBName;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -20,17 +18,20 @@ export default async function SettingsPage() {
       <div className="grid gap-6">
         <Card>
           <SectionTitle>מי מתכנן</SectionTitle>
-          <ul className="mb-4 divide-y divide-line">
+          <ul className="mb-3 divide-y divide-line">
             {members.map((m) => (
               <li key={m.userId} className="flex items-center justify-between py-2.5">
-                <span className="font-medium">{m.name}</span>
-                <span className="text-sm text-muted" dir="ltr">
-                  {m.email}
-                </span>
+                <span className="font-medium">{memberLabel(wedding, m)}</span>
+                {m.userId === me.userId ? <span className="text-sm text-brand-ink">זה אני</span> : null}
               </li>
             ))}
           </ul>
-          {other ? <p className="text-sm text-muted">שניכם מחוברים לאותה חתונה: כל שינוי של אחד מופיע אצל השני.</p> : <InvitePartner partnerName={otherName} />}
+          <p className="text-sm text-muted">
+            אין חשבונות וסיסמאות. כל מכשיר זוכר מי אתם, והבחירה קובעת של מי הציונים וההערות.{" "}
+            <Link href="/who" className="font-medium text-brand-ink underline underline-offset-4">
+              החלפת מתכנן/ת
+            </Link>
+          </p>
         </Card>
 
         <Card id="wedding">
@@ -61,18 +62,16 @@ export default async function SettingsPage() {
         <Card>
           <SectionTitle>נתונים ופרטיות</SectionTitle>
           <p className="mb-3 text-sm text-muted">
-            המידע שלכם (שמות וטלפונים של אורחים, החלטות ותקציב) שמור רק בחשבון הזה, ולא נשלח לצד שלישי. אין מעקב ואין פרסומות. הקישורים לאישור הגעה סודיים, וכל אחד פותח רק משק בית אחד.
+            האתר פתוח לכל מי שיש לו את הכתובת (אין התחברות), אז אל תפיצו אותה. המידע (שמות וטלפונים של אורחים, החלטות ותקציב) לא נשלח לצד שלישי, ואין מעקב או פרסומות. הקישורים לאישור הגעה סודיים, וכל אחד פותח רק משק בית אחד.
           </p>
           <a href="/settings/export" className="inline-flex min-h-11 items-center rounded-xl border border-line bg-surface px-4 font-medium hover:bg-surface-2">
             הורדת כל הנתונים (JSON)
           </a>
-          {me.role === "owner" ? (
-            <div className="mt-6 rounded-xl border border-rose-ink/30 bg-rose-soft p-4">
-              <p className="mb-2 font-medium text-rose-ink">מחיקת החתונה</p>
-              <p className="mb-3 text-sm text-rose-ink">מוחק לצמיתות את כל האורחים, ההחלטות, התקציב והמשימות, גם אצל בן/בת הזוג. אי אפשר לשחזר.</p>
-              <DeleteWeddingForm />
-            </div>
-          ) : null}
+          <div className="mt-6 rounded-xl border border-rose-ink/30 bg-rose-soft p-4">
+            <p className="mb-2 font-medium text-rose-ink">מחיקת החתונה</p>
+            <p className="mb-3 text-sm text-rose-ink">מוחק לצמיתות את כל האורחים, ההחלטות, התקציב והמשימות, ומחזיר את האתר להגדרה ראשונית. אי אפשר לשחזר.</p>
+            <DeleteWeddingForm />
+          </div>
         </Card>
       </div>
     </div>

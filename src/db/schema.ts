@@ -79,9 +79,15 @@ export const weddingMembers = pgTable(
     partner: text("partner").$type<"a" | "b">(),
     joinedAt: createdAt(),
   },
-  (t) => [primaryKey({ columns: [t.weddingId, t.userId] }), index("wedding_members_user_idx").on(t.userId)],
+  (t) => [
+    primaryKey({ columns: [t.weddingId, t.userId] }),
+    index("wedding_members_user_idx").on(t.userId),
+    // One identity per partner slot (the open-access mode creates them on demand).
+    uniqueIndex("wedding_members_partner_uq").on(t.weddingId, t.partner).where(sql`${t.partner} is not null`),
+  ],
 ).enableRLS();
 
+/** Unused since the site became open (no accounts); kept so no migration has to drop it. */
 export const weddingInvites = pgTable(
   "wedding_invites",
   {
